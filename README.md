@@ -10,7 +10,7 @@ It contains a three-stage pipeline.
   - **Third Stage** : It helps import the credentials files needed by the workflow, and run N8N CLI to execute the workflow.
 
 ## docker-compose.yml
-It contains docker-compose instructions to spin-up 2 containers needed by the `workflow.json` file. The first container `dl-streamer-pipeline-server`, is needed by Intel VAS node running in the workflow. Another container called `eclipse-mosquitto` helps in running a MQTT broker, which is needed by Intel VAS during run-time.
+It contains docker-compose instructions to spin-up 2 containers needed by the `workflow.json` file. The first container `dlstreamer-pipeline-server`, is needed by Intel VAS node running in the workflow. Another container called `eclipse-mosquitto` helps in running a MQTT broker, which is needed by Intel VAS during run-time.
 
 ## mosquitto.conf
 A configuration file needed by `eclipse-mosquitto` container.
