@@ -9,13 +9,10 @@ pipeline {
         N8N_SETUP_DIR = "${JENKINS_HOME}/workspace/n8n-setup"
         N8N_HOME = "${JENKINS_HOME}/workspace/n8n"
 
-        DL_STREAMER_DIR = "${N8N_SETUP_DIR}/dl-streamer-setup"
-
         PROXY_FILE = "/etc/apt/apt.conf.d/00-proxy"
         VERIFY_PEER_CONFIG_FILE = "/etc/apt/apt.conf.d/99-verify-peer"
 
         __REPO_N8N = "https://github.com/krish918/n8n.git"
-        __REPO_MICROSERVICE = "https://github.com/krish918/dl-streamer-setup.git"
     }
     stages {
         stage("Build N8N") {
@@ -126,8 +123,7 @@ pipeline {
                 * TO DO :  
                             1. install docker and start docker daemon
                             2. install docker-compose
-                            3. clone the repo $__REPO_MICROSERVICE inside $N8N_SETUP_DIR
-                            4. run docker-compose inside $DL_STREAMER_DIR to fire up all the required containers
+                            3. run docker-compose inside CWD to fire up all the required containers
                                 for this particular workflow.
                 ***/
 
