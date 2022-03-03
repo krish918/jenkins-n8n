@@ -60,7 +60,7 @@ pipeline {
                             dir_empty = sh ( script: 'test -z "$(ls -A $NODEJS_DIR)"', returnStatus: true ) == 0
                             if ( dir_empty == true ) {
                                 sh 'apt-get install -y tar gzip'
-                                sh "tar -xvzf ${NODE_TAR_FILE} -C ${NODEJS_DIR}"
+                                sh "tar -xzf ${NODE_TAR_FILE} -C ${NODEJS_DIR}"
                                 sh 'chown -R $(whoami) "$NODEJS_DIR"' 
                             }
 
