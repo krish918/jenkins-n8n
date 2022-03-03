@@ -1,4 +1,4 @@
-SETUP_NEEDED = false
+BUILD_NEEDED = false
 pipeline {
     agent {
         node {
@@ -9,80 +9,102 @@ pipeline {
         NODEJS_DIR = "/usr/local/lib/nodejs"
         NODE_TAR_FILE = "node-v14.18.0-linux-x64.tar.gz"
         NODE_VER_BUILD = "node-v14.18.0-linux-x64"
+        NODE_DIST = "https://nodejs.org/dist/v14.18.0/${NODE_TAR_FILE}"
 
-        N8N_SETUP_DIR = "${JENKINS_HOME}/workspace/n8n-setup"
-        N8N_HOME = "${JENKINS_HOME}/workspace/n8n"
+        N8N_SETUP_DIR = "${HOME}/workspace/n8n-setup"
+        N8N_HOME = "${HOME}/workspace/n8n"
 
-        PROXY_FILE = "/etc/apt/apt.conf.d/00-proxy"
-        VERIFY_PEER_CONFIG_FILE = "/etc/apt/apt.conf.d/99-verify-peer"
+        //PROXY_FILE = "/etc/apt/apt.conf.d/00-proxy"
+        //VERIFY_PEER_CONFIG_FILE = "/etc/apt/apt.conf.d/99-verify-peer"
 
         __REPO_N8N = "https://github.com/krish918/n8n.git"
     }
     stages {
         stage("Build N8N") {
             steps {
-                dir("${JENKINS_HOME}/workspace") {
+                
+                // We will clone and setup N8N one level above the current working dir
+                
+                dir("${HOME}/workspace") {
                     script {
-                        // check if N8N directory in the workspace already exists, otherwise clone it
+                         
+                        // Check if N8N directory already exists in the workspace , otherwise clone the N8N repo
+                        
                         if ( !fileExists (N8N_HOME) ) {
                             sh 'git clone "$__REPO_N8N"'
-
-                            // if cloning the repo for first time, then setup is must-needed.
-                            SETUP_NEEDED = true
+                            
+                            // If cloned, then it needs to be built
+                            BUILD_NEEDED = true
                         }
                     }
                 }
                 dir( N8N_SETUP_DIR ) {
                     script {
+                        
                         /*
-                         Check for a file which is created after BUILD completes succesfully. 
-                         If this file is available, no need to re-run BUILD. 
+                        setup.conf file is created in N8N_SETUP_DIR, once the N8N BUILD is successful. 
+                        If it is already available, then we don't need to RE-BUILD.
                         */
+                        
                         if ( !fileExists ('./setup.conf') ) {
 
-                            SETUP_NEEDED = true
-
-                            // setup proxy setting file in order to run apt-get on the server
+                            BUILD_NEEDED = true
+                            
+                            // Commenting out, as we don't need to setup proxy on aws node.
+                            /*
                             if ( !fileExists( PROXY_FILE ) ) {
                                 sh 'echo "Acquire::http::proxy \\"http://proxy-dmz.intel.com:911\\";\nAcquire::https::proxy \\"http://proxy-dmz.intel.com:912\\";" >> "$PROXY_FILE"'           
                             }
+                            */
                             
-                            sh 'apt-get update -y'
+                            sh 'sudo apt-get update -y'
                             
-                            //fetch the node version recommended for BUILDING N8N
+                            // If nodejs tarball is not available, then download it.
+                            
                             if ( !fileExists ( NODE_TAR_FILE ) ) {
-                                sh 'apt-get install -y curl'
-                                sh 'curl -O "https://nodejs.org/dist/v14.18.0/${NODE_TAR_FILE}"'
+                                sh 'sudo apt-get install -y curl'
+                                sh 'curl -O "${NODE_DIST}"'
                             }
                             
-                            // install nodejs
-                            sh "mkdir -p ${NODEJS_DIR}"
+                            // We create the dir, where we will be installing N8N recommended version of nodejs, in case nodejs is not pre-installed.
+                            
+                            sh "sudo mkdir -p ${NODEJS_DIR}"
+                            
+                            // Extract the nodejs tarball, if it is not already extracted.
+                            
                             dir_empty = sh ( script: 'test -z "$(ls -A $NODEJS_DIR)"', returnStatus: true ) == 0
                             if ( dir_empty == true ) {
-                                sh 'apt-get install -y tar gzip'
-                                sh "tar -xzf ${NODE_TAR_FILE} -C ${NODEJS_DIR}"
-                                sh 'chown -R $(whoami) "$NODEJS_DIR"' 
+                                sh 'sudo apt-get install -y tar gzip'
+                                sh "sudo tar -xzf ${NODE_TAR_FILE} -C ${NODEJS_DIR}"
+                                sh 'sudo chown -R $(whoami) "$NODEJS_DIR"' 
                             }
 
-                            // install build tools
-                            sh 'apt-get install -y build-essential python'
+                            // Install build tools to be able to build N8N
+                            
+                            sh 'sudo apt-get install -y build-essential python'
 
-                            // set symbolic links for node and npm, to be available in PATH
+                            /*
+                                If npm and node commands are not already available, then 
+                                make them available via a symbolic link to the nodejs version, which we just 
+                                extracted in NODEJS_DIR.
+                            */
+                            
                             npm_exist = sh ( script: 'test -L /usr/bin/npm', returnStatus: true ) == 0
                             if ( npm_exist == false ) {
-                                sh "ln -s ${NODEJS_DIR}/${NODE_VER_BUILD}/bin/npm /usr/bin/npm"
+                                sh "sudo ln -s ${NODEJS_DIR}/${NODE_VER_BUILD}/bin/npm /usr/bin/npm"
                             }
 
                             node_exist = sh ( script: 'test -L /usr/bin/node', returnStatus: true ) == 0
                             if ( npm_exist == false ) {
-                                sh "ln -s ${NODEJS_DIR}/${NODE_VER_BUILD}/bin/node /usr/bin/node"
+                                sh "sudo ln -s ${NODEJS_DIR}/${NODE_VER_BUILD}/bin/node /usr/bin/node"
                             }
-
-                            // install lerna needed to build N8N
+                            
+                            // Check for existence of lerna (needed to build N8N) and install if not available.
+                            
                             lerna_exist = sh ( script: 'test -L /usr/bin/lerna', returnStatus: true ) == 0
                             if ( lerna_exist == false ) {
-                                sh 'npm install -g lerna'
-                                sh "ln -s ${NODEJS_DIR}/${NODE_VER_BUILD}/bin/lerna /usr/bin/lerna"
+                                sh 'sudo npm install -g lerna'
+                                //sh "sudo ln -s ${NODEJS_DIR}/${NODE_VER_BUILD}/bin/lerna /usr/bin/lerna"
                             }
                         }
                     }
@@ -91,26 +113,33 @@ pipeline {
                     script {
                         UPDATED = false
                         
-                        // check if N8N repo has any new commits
-                        if ( SETUP_NEEDED == false ) {
+                        /*
+                        If N8N is already built, then check if there are new commits on the repo.
+                        If yes, the turn on the UPDATED flag, so that N8N can be re-built.
+                        */
+                        
+                        if ( BUILD_NEEDED == false ) {
                             sh 'git remote update'
                             LOCAL = sh( script: 'git rev-parse @', returnStdout: true ).trim()
                             REMOTE = sh( script: 'git rev-parse @{u}', returnStdout: true ).trim()
-
-                            // if there are new commits, pull updates
                             if ( LOCAL != REMOTE ) {
                                 sh 'git pull origin master'
                                 UPDATED = true
                             }
                         }
-
-                        // if setup is needed or N8N repo is updated, start building N8N
-                        if ( SETUP_NEEDED == true || UPDATED == true ) {
+                        
+                        /*
+                        Build N8N, either it is first time setup (BUILD_NEEDED = true) or 
+                        if there are some new commits on the repo (UPDATED = true)
+                        */
+                        
+                        if ( BUILD_NEEDED == true || UPDATED == true ) {
                             sh 'lerna bootstrap --hoist'
-                            sh 'npm run build'
+                            sh 'sudo npm run build'
                             sh "$N8N_HOME/packages/cli/bin/n8n --version"
-
-                            // after BUILD is succesful, create a file to make sure not to RE-BUILD unless required.
+                            
+                            // Create a dummy file in N8N_SETUP_DIR which signals that N8N is built successfully.
+                            
                             if ( !fileExists ("$N8N_SETUP_DIR/setup.conf")) {
                                 sh 'echo "INITIAL_SETUP_DONE" >> "${N8N_SETUP_DIR}/setup.conf"'
                             }
@@ -122,27 +151,68 @@ pipeline {
         
         stage("Setup Microservices") {
             steps {
-                sh 'echo "TO DO"'
-                /***
-                * TO DO :  
-                            1. install docker and start docker daemon
-                            2. install docker-compose
-                            3. run docker-compose inside CWD to fire up all the required containers
-                                for this particular workflow.
-                ***/
+                script {
+                    
+                    /*
+                    Check whether docker exists, otherwise setup docker on the current node.
+                    */
+                    
+                    docker_exist = sh (script : 'command -v docker', returnStatus : true) == 0
+                    if ( !docker_exist ) {
+                        
+                        sh 'sudo apt-get install -y ca-certificates gnupg lsb-release'
 
+                        //sh 'echo "Acquire { https::Verify-Peer \\"false\\" }" >> "$VERIFY_PEER_CONFIG_FILE"'
+
+                        sh 'curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg'
+                        sh 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null'
+                        sh 'sudo apt-get update -y'
+                        sh 'sudo apt-get install -y docker-ce docker-ce-cli containerd.io'
+                        
+                        // Check if a docker group exists, otherwise create it.
+                        docker_grp = sh (script : 'sudo getent group docker', returnStatus : true ) == 0
+                        if ( !docker_grp ) {
+                            sh 'sudo groupadd docker'   
+                        }
+                        
+                        // Add current user to docker group to allow running docker without sudo
+                        sh 'sudo usermod -aG docker "$(whoami)"'
+                    }
+                    
+                    sh 'sudo systemctl start docker'
+
+                    /*
+                        Install docker-compose if not available on current node.
+                    */
+                    
+                    docker_compose = sh (script : 'command -v docker-compose', returnStatus : true) == 0
+                    if ( !docker_compose ) {
+                        sh 'sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose'
+                        sh 'sudo chmod +x /usr/local/bin/docker-compose'
+                        sh 'sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose'
+                    }
+
+                    // If docker-compose file exists in the current repo, spin-up the services.
+                    
+                    if ( fileExists ('docker-compose.yml') ) {
+                        sh 'sudo docker-compose up -d'
+                    }
+                }
             }
         }
         stage("Import & Execute Workflow") {
             steps {
-
-                //import credentials into N8N
+                
+                // Import credentials from this repo into N8N
+                
                 sh "$N8N_HOME/packages/cli/bin/n8n import:credentials --input=credentials.json"
-
-                // copy the encryption key to current user's home dir
+                
+                // Copy the encryption key (needed to decrypt credentials) into .n8n directory of current user's home. 
+                
                 sh 'cp config "${HOME}/.n8n/"'
-
-                //execute workflow
+                
+                // EXECUTE THE WORKFLOW
+                
                 sh 'echo "Executing Workflow..."'
                 sh "$N8N_HOME/packages/cli/bin/n8n execute --file workflow.json"
             }
