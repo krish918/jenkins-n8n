@@ -196,7 +196,7 @@ pipeline {
                     
                     if ( fileExists ('docker-compose.yml') ) {
                         
-                        sh 'sudo -E docker-compose up -d'
+                        sh 'sudo docker-compose up -d'
                     }
                 }
             }
