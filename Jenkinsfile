@@ -196,9 +196,10 @@ pipeline {
                     
                     if ( fileExists ('docker-compose.yml') ) {
                         
+                        sh 'sudo -E docker-compose down'
                         // But if services are already up, then do not run docker-compose.
                         if ( sh (script : 'sudo docker-compose ps -q | wc -l', returnStdout : true ).trim() == 0 ) {
-                            sh 'sudo docker-compose up -d'
+                            sh 'sudo -E docker-compose up -d'
                         }
                     }
                 }
