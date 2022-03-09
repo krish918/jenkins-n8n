@@ -153,9 +153,7 @@ pipeline {
             steps {
                 script {
                     
-                    /*
-                    Check whether docker exists, otherwise setup docker on the current node.
-                    */
+                    // Check whether docker exists, otherwise setup docker on the current node.
                     
                     docker_exist = sh (script : 'command -v docker', returnStatus : true) == 0
                     if ( !docker_exist ) {
@@ -170,20 +168,22 @@ pipeline {
                         sh 'sudo apt-get install -y docker-ce docker-ce-cli containerd.io'
                         
                         // Check if a docker group exists, otherwise create it.
+                        
                         docker_grp = sh (script : 'sudo getent group docker', returnStatus : true ) == 0
                         if ( !docker_grp ) {
                             sh 'sudo groupadd docker'   
                         }
                         
                         // Add current user to docker group to allow running docker without sudo
+                        
                         sh 'sudo usermod -aG docker "$(whoami)"'
                     }
                     
+                    // Start docker daemon
+                    
                     sh 'sudo systemctl start docker'
 
-                    /*
-                        Install docker-compose if not available on current node.
-                    */
+                    // Install docker-compose if not available on current node.
                     
                     docker_compose = sh (script : 'command -v docker-compose', returnStatus : true) == 0
                     if ( !docker_compose ) {
