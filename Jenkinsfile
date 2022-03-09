@@ -196,7 +196,7 @@ pipeline {
                     
                     if ( fileExists ('docker-compose.yml') ) {
                         
-                        sh 'docker-compose up -d'
+                        sh 'docker-compose -p jenkins-n8n up -d'
                     }
                 }
             }
