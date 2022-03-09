@@ -194,7 +194,6 @@ pipeline {
 
                     // If docker-compose file exists in the current repo, spin-up the services.
                     
-                    sh 'docker-compose down'
                     if ( fileExists ('docker-compose.yml') ) {
                         
                         sh 'docker-compose up -d'
