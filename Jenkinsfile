@@ -195,7 +195,6 @@ pipeline {
                     // If docker-compose file exists in the current repo, spin-up the services.
                     
                     if ( fileExists ('docker-compose.yml') ) {
-                        
                         sh 'docker-compose -p jenkins-n8n up -d'
                     }
                 }
